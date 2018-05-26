@@ -73,17 +73,72 @@
     ;; animalのx座標を更新する
     (setf (animal-x animal)
           (mod (+ x
-                  (cond ((and (>= dir 2) (< dir 5)) 1)
-                        ((or (= dir 1) (= dir 5)) 0)
-                        (t -1)))
+                  (cond ((and (>= dir 2) (< dir 5)) 1)  ; 方向が234のときx座標を1増やす
+                        ((or (= dir 1) (= dir 5)) 0)    ; 方向が1か5のときx座標を変えない
+                        (t -1)))                        ; 方向が067のときx座標を1減らす
                *width*))
     ;; animalのy座標を更新する
     (setf (anima-y animal)
           (mod (+ y
-                  (cond ((and (>= dir 0) (< dir 3)) -1)
-                        ((and (>= dir 4) (< dir 7)) 1)
-                        (t 0)))
+                  (cond ((and (>= dir 0) (< dir 3)) -1) ; 方向が012のときy座標を1減らす
+                        ((and (>= dir 4) (< dir 7)) 1)  ; 方向が456のときy座標を1増やす
+                        (t 0)))                         ; 方向が3か7のときy座標を変えない
                *height*))
     ;; animalの生命力を減らす
     (decf (animal-energy animal))))
+
+(defun turn (animal)
+  "動物の向きを変える"
+  ;; 各方向の確率を足し合わせ、0からその数値未満の整数値をランダムに取る
+  ;; これが、累積ヒストグラムにおける頻度を表す
+  (let ((x (random (apply #'+ (animal-genes animal)))))
+    ;; angle関数
+    ;; summary: 各方向の確率とランダム値を元にして進む方向を算出する
+    ;; genes: 各方向の確率のリスト
+    ;; x: ランダム値。累積ヒストグラムにおける頻度を表す。
+    ;; ret: 次に進む方向
+    (labels ((angle (genes x)
+               ;; ランダム値から、リストの先頭から確率の値を引く
+               (let ((xnu (- x (car genes))))
+                 ;; 差分が0未満なら0を返す
+                 ;; 差分が0以上なら次の方向の評価に進める
+                 (if (< xnu 0)
+                     0
+                     (1+ (angle (cdr genes) xnu))))))
+      ;; 動物の向きを変える(0(左上方向)が前であることに注意)
+      (setf (animal-dir animal)
+            (mod (+ (animal-dir animal) (angle (animal-genes animal) x))
+              8)))))
+
+(defun eat (animal)
+  "動物に食べさせる"
+  (let ((pos (cons (animal-x animal) (animal-y animal))))
+    (when (gethash pos *plants*)
+      ;; 植物が持つ生命力を動物に与える
+      (incf (animal-energy animal) *plant-energy*)
+      ;; 食べられた植物を消す
+      (remhash pos *plants*))))
+
+
+;;; ---------------------------------------------------------------------------
+;;; 繁殖に関する処理
+;;; ---------------------------------------------------------------------------
+
+;; 繁殖可能な生命力の下限
+(defparameter *reproduction-energy* 200)
+
+(defun reproduce (animal)
+  "繁殖する"
+  (let ((e (animal-energy animal)))
+    (when (>= e *reproduction-energy*)
+      ;; 繁殖するために生命力を半減させる
+      (setf (animal-energy animal) (ash e -1))
+      (let ((animal-nu  (copy-structure animal))    ; shallow copyのため実体は共有される
+            (genes      (copy-list (animal-genes animal)))  ; 
+            (mutation   (random 8)))
+        (setf (nth mutation genes) (max 1 (+ (nth mutation genes) (random 3) -1)))
+        (setf (animal-genes animal-nu) genes)
+        (push animal-nu *animals*)))))
+
+
 
