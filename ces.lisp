@@ -20,11 +20,13 @@
 ;; キー比較関数を、デフォルトのeql(シンボルと文字列比較用)からequalに変更する
 (defparameter *plants* (make-hash-table :test #'equal))
 
+
 (defun random-plant (left top width height)
   "マップの指定された領域の中でランダムに植物を配置する"
   (let ((pos (cons (+ left (random width)) (+ top (random height)))))
     ;; 植物が配置された座標のキーに対する値をtにする
     (setf (gethash pos *plants*) t)))
+
 
 (defun add-plants ()
   "ジャングル内に植物を配置し、マップ内にも植物を配置する"
@@ -55,6 +57,7 @@
   ;; 動物の遺伝子(各方向に行く確率を持つ。大きいほどその方向に行きやすい。)
   genes)
 
+
 ;; 最初の動物を一体作る
 (defparameter *animals*
   ;; *animals*は単に全要素をスキャンして処理するのみのため単純にリスト
@@ -64,6 +67,7 @@
           :energy    1000                ; 生命力（1000日間）
           :dir       0                   ; 初期の方向（左上）
           :genes     (loop repeat 8 collect (1+ (random 10))))))    ; 各方向への行きやすさ
+
 
 (defun move (animal)
   "動物を動かす"
@@ -86,6 +90,7 @@
                *height*))
     ;; animalの生命力を減らす
     (decf (animal-energy animal))))
+
 
 (defun turn (animal)
   "動物の向きを変える"
@@ -110,6 +115,7 @@
             (mod (+ (animal-dir animal) (angle (animal-genes animal) x))
               8)))))
 
+
 (defun eat (animal)
   "動物に食べさせる"
   (let ((pos (cons (animal-x animal) (animal-y animal))))
@@ -120,12 +126,9 @@
       (remhash pos *plants*))))
 
 
-;;; ---------------------------------------------------------------------------
-;;; 繁殖に関する処理
-;;; ---------------------------------------------------------------------------
-
 ;; 繁殖可能な生命力の下限
 (defparameter *reproduction-energy* 200)
+
 
 (defun reproduce (animal)
   "繁殖する"
@@ -199,7 +202,8 @@
                                (t #\space))))
              ;; 右端の壁
              (princ "|"))))
- 
+
+
 (defun evolution ()
   "シミュレーションのUI"
   ;; マップ表示
