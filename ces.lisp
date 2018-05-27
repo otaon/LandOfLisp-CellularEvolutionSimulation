@@ -139,7 +139,7 @@
       ;; genes: 遺伝子（コピーされたもの）
       ;; mutation: 突然変異を起こす遺伝子のインデックス
       (let ((animal-nu  (copy-structure animal))
-            (genes      (copy-list (animal-genes animal)))  ; 
+            (genes      (copy-list (animal-genes animal)))
             (mutation   (random 8)))
         ;; 突然変異を起こすインデックスの遺伝子に対して、
         ;; その方向への意気やすさを増減させる
@@ -179,32 +179,50 @@
   "REPLで現在の世界のスナップショットを描画する"
   (loop for y
         below *height*
-        do (progn (fresh-line)
-                  (princ "|")
-                  (loop for x
-                        below *width*
-                        do (princ (cond ((some (lambda (animal)
-                                                 (and (= (animal-x animal) x)
-                                                      (= (animal-y animal) y)))
-                                               *animals*)
-                                         #\M)
-                                        ((gethash (cons x y) *plants*) #\*)
-                                        (t #\space))))
-                  (princ "|"))))
+        do (progn
+             ;; 改行（カーソル位置が行頭だと改行してくれないことに注意）
+             (fresh-line)
+             ;; 左端の壁
+             (princ "|")
+             (loop for x
+                   below *width*
+                   do (princ (cond
+                               ;; 動物がいるマスにはMを表示する
+                               ((some (lambda (animal)
+                                        (and (= (animal-x animal) x)
+                                             (= (animal-y animal) y)))
+                                      *animals*)
+                                #\M)
+                               ;; 植物がいるマスには*を表示する
+                               ((gethash (cons x y) *plants*) #\*)
+                               ;; 何もいないマスにはスペースを表示する
+                               (t #\space))))
+             ;; 右端の壁
+             (princ "|"))))
  
 (defun evolution ()
   "シミュレーションのUI"
+  ;; マップ表示
   (draw-world)
+  ;; 改行（カーソル位置が行頭だと改行してくれないことに注意）
   (fresh-line)
+  ;; ユーザからの入力を受け付ける
   (let ((str (read-line)))
-    (cond ((equal str "quit") ())
-          (t (let ((x (parse-integer str :junk-allowed t)))
-               (if x
-                   (loop for i
-                         below x
-                         do (update-world)
-                         if (zerop (mod i 1000))
-                         do (princ #\.))
-                   (update-world))
-               (evolution))))))
+    (cond
+      ;; "quit"入力で終了
+      ((equal str "quit") ())
+      ;; 正整数を入力でその回数だけマップ更新・表示
+      (t (let ((x (parse-integer str :junk-allowed t)))
+           (if x
+               ;; 有効な回数が入力された場合その回数だけマップ更新
+               (loop for i
+                     below x
+                     do (update-world)
+                     ;; 1000回マップを更新する毎にドットを表示
+                     if (zerop (mod i 1000))
+                     do (princ #\.))
+               ;; 無効な回数が入力された場合1回だけマップ更新
+               (update-world))
+           ;; シミュレーションを繰り返す
+           (evolution))))))
 
