@@ -18,7 +18,7 @@
 
 ;; 植物用のハッシュテーブル（存在する座標がキー）
 ;; キー比較関数を、デフォルトのeql(シンボルと文字列比較用)からequalに変更する
-(defparameter *plants* (make-hash-table :test #'qeual))
+(defparameter *plants* (make-hash-table :test #'equal))
 
 (defun random-plant (left top width height)
   "マップの指定された領域の中でランダムに植物を配置する"
@@ -68,8 +68,8 @@
 (defun move (animal)
   "動物を動かす"
   (let ((dir (animal-dir animal))
-        (x (anima-x animal))
-        (y (anima-y animal)))
+        (x (animal-x animal))
+        (y (animal-y animal)))
     ;; animalのx座標を更新する
     (setf (animal-x animal)
           (mod (+ x
@@ -78,7 +78,7 @@
                         (t -1)))                        ; 方向が067のときx座標を1減らす
                *width*))
     ;; animalのy座標を更新する
-    (setf (anima-y animal)
+    (setf (animal-y animal)
           (mod (+ y
                   (cond ((and (>= dir 0) (< dir 3)) -1) ; 方向が012のときy座標を1減らす
                         ((and (>= dir 4) (< dir 7)) 1)  ; 方向が456のときy座標を1増やす
@@ -133,12 +133,78 @@
     (when (>= e *reproduction-energy*)
       ;; 繁殖するために生命力を半減させる
       (setf (animal-energy animal) (ash e -1))
-      (let ((animal-nu  (copy-structure animal))    ; shallow copyのため実体は共有される
+      ;; copy-structureは構造体自体のみコピーされ、スロットの値は共有される
+      ;; スロットの内容もコピーしたい場合はそれぞれをコピーする必要がある
+      ;; animal-nu: 子供（コピーされたもの）
+      ;; genes: 遺伝子（コピーされたもの）
+      ;; mutation: 突然変異を起こす遺伝子のインデックス
+      (let ((animal-nu  (copy-structure animal))
             (genes      (copy-list (animal-genes animal)))  ; 
             (mutation   (random 8)))
+        ;; 突然変異を起こすインデックスの遺伝子に対して、
+        ;; その方向への意気やすさを増減させる
         (setf (nth mutation genes) (max 1 (+ (nth mutation genes) (random 3) -1)))
+        ;; 子供の動物の遺伝子を更新する
         (setf (animal-genes animal-nu) genes)
+        ;; 子供を動物リストに追加する
         (push animal-nu *animals*)))))
 
 
+;;; ---------------------------------------------------------------------------
+;;; 世界の一日をシミュレート
+;;; ---------------------------------------------------------------------------
+
+(defun update-world ()
+  "動物と植物の状況を1日分更新する"
+  ;; 生命力が尽きた動物を消す
+  (setf *animals* (remove-if (lambda (animal)
+                               (<= (animal-energy animal) 0))
+                             *animals*))
+  ;; 全ての動物に対して、方向決定、移動、食事、繁殖をさせる
+  (mapc (lambda (animal)
+          (turn animal)
+          (move animal)
+          (eat animal)
+          (reproduce animal))
+        *animals*)
+  ;; 植物を追加する
+  (add-plants))
+
+
+;;; ---------------------------------------------------------------------------
+;;; 世界を描く
+;;; ---------------------------------------------------------------------------
+
+(defun draw-world ()
+  "REPLで現在の世界のスナップショットを描画する"
+  (loop for y
+        below *height*
+        do (progn (fresh-line)
+                  (princ "|")
+                  (loop for x
+                        below *width*
+                        do (princ (cond ((some (lambda (animal)
+                                                 (and (= (animal-x animal) x)
+                                                      (= (animal-y animal) y)))
+                                               *animals*)
+                                         #\M)
+                                        ((gethash (cons x y) *plants*) #\*)
+                                        (t #\space))))
+                  (princ "|"))))
+ 
+(defun evolution ()
+  "シミュレーションのUI"
+  (draw-world)
+  (fresh-line)
+  (let ((str (read-line)))
+    (cond ((equal str "quit") ())
+          (t (let ((x (parse-integer str :junk-allowed t)))
+               (if x
+                   (loop for i
+                         below x
+                         do (update-world)
+                         if (zerop (mod i 1000))
+                         do (princ #\.))
+                   (update-world))
+               (evolution))))))
 
